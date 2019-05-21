@@ -21,6 +21,18 @@ type proxyConfig struct {
 	maxRecipients int `yaml:"maxRecipients"`
 	// maxMessageBytes represents the size of message.
 	maxMessageBytes int `yaml:"maxMessageBytes"`
+	// The path to Cert and Key files.
+	// For example, to generate those files:
+	// # Key considerations for algorithm "RSA" ≥ 2048-bit
+	// openssl genrsa -out server.key 2048
+	//
+	// # Key considerations for algorithm "ECDSA" (X25519 || ≥ secp384r1)
+	// # https://safecurves.cr.yp.to/
+	// # List ECDSA the supported curves (openssl ecparam -list_curves)
+	// openssl ecparam -genkey -name secp384r1 -out server.key
+	// openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+	serverCrt string `yaml:"serverCrt"`
+	serverKey string `yaml:"serverKey"`
 }
 
 // smtpConfig stores smtp server related configurations.
@@ -53,6 +65,9 @@ func loadConfig(cp string) error {
 	viper.SetDefault("proxy.domain", "localhost")
 	viper.SetDefault("proxy.readTimeout", time.Duration(10))
 	viper.SetDefault("proxy.writeTimeout", time.Duration(10))
+	// By default, put cert files in the config directory
+	viper.SetDefault("proxy.serverCrt", cp+"/server.crt")
+	viper.SetDefault("proxy.serverKey", cp+"/server.key")
 	viper.SetDefault("maxRecipients", 50)
 	viper.SetDefault("maxMessageBytes", 1024*1024)
 	var cfg globalConfig

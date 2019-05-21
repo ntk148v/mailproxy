@@ -2,6 +2,8 @@ proxy:
   address: ":9011"
   domain: "localhost"
   allowInsecureAuth: true
+  serverCrt: "server.Crt"
+  serverKey: "server.key"
 smtp:
   address: "smtp.example.com:465"
   username: "fakeuser"
