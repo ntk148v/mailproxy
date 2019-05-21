@@ -1,0 +1,7 @@
+proxy:
+  address: ":9011"
+  domain: "localhost"
+smtp:
+  address: "smtp.example.com:465"
+  username: "fakeuser"
+  password: "fakepassword"
