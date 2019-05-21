@@ -27,5 +27,5 @@ $ docker run -d -p 9011:9011 --name mailproxy -v /path/to/config.yml:/etc/mailpr
 * Run it.
 
 ```bash
-$ ./bin/mailproxy -conf /path/to/config.yml
+$ ./bin/mailproxy -conf /path/to/directory/contains/configyml
 ```
