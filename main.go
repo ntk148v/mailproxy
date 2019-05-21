@@ -31,11 +31,11 @@ func main() {
 	s.Addr = viper.GetString("proxy.address")
 	s.Domain = viper.GetString("proxy.domain")
 	// TODO(kiennt): Add config later
-	s.ReadTimeout = 10 * time.Second
-	s.WriteTimeout = 10 * time.Second
-	s.MaxMessageBytes = 1024 * 1024
-	s.MaxRecipients = 50
-	s.AllowInsecureAuth = true
+	s.ReadTimeout = viper.GetDuration("proxy.readTimeout") * time.Second
+	s.WriteTimeout = viper.GetDuration("proxy.writeTimeout") * time.Second
+	s.MaxMessageBytes = viper.GetInt("proxy.maxMessageBytes")
+	s.MaxRecipients = viper.GetInt("proxy.maxRecipients")
+	s.AllowInsecureAuth = viper.GetBool("proxy.allowInsecureAuth")
 	// Force use AUTH LOGIN instead of AUTH PLAIN
 	s.EnableAuth(sasl.Login, func(conn *smtp.Conn) sasl.Server {
 		return sasl.NewLoginServer(func(username, password string) error {

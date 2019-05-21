@@ -16,7 +16,6 @@ type Backend struct{}
 type message struct {
 	From string
 	To   []string
-	Data []byte
 }
 
 // A Session is returned after successful login.
@@ -38,6 +37,7 @@ func (be *Backend) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, er
 	return nil, smtp.ErrAuthRequired
 }
 
+// Mail - handle MAIL FROM
 func (s *Session) Mail(from string) error {
 	log.Println("Mail from:", from)
 	s.Reset()
@@ -45,25 +45,30 @@ func (s *Session) Mail(from string) error {
 	return nil
 }
 
+// Rcpt - handle RCPT TO
 func (s *Session) Rcpt(to string) error {
 	log.Println("Rcpt to:", to)
 	s.msg.To = append(s.msg.To, to)
 	return nil
 }
 
+// Data - handle DATA
 func (s *Session) Data(r io.Reader) error {
 	auth := sasl.NewPlainClient("", viper.GetString("smtp.username"), viper.GetString("smtp.password"))
 	err := smtp.SendMail(viper.GetString("smtp.address"), auth, s.msg.From, s.msg.To, r, true)
 	if err != nil {
 		return err
 	}
+	log.Println("Nice! Forwarded mail to ", s.msg.To)
 	return nil
 }
 
+// Reset - Clear message
 func (s *Session) Reset() {
 	s.msg = &message{}
 }
 
+// Logout - logout, of course
 func (s *Session) Logout() error {
 	return nil
 }
