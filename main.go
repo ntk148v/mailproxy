@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"log"
 	"time"
@@ -20,7 +21,9 @@ var configFilePath string
 func init() {
 	flag.StringVar(&configFilePath, "conf", defaultConfigFilePath, configFilePathUsage)
 	flag.Parse()
-	loadConfig(configFilePath)
+	if err := loadConfig(configFilePath); err != nil {
+		panic(err)
+	}
 }
 
 func main() {
@@ -28,9 +31,17 @@ func main() {
 
 	s := smtp.NewServer(be)
 
+	// Generate a cert
+	cer, err := tls.LoadX509KeyPair(viper.GetString("proxy.serverCrt"), viper.GetString("proxy.serverKey"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.TLSConfig = &tls.Config{
+		InsecureSkipVerify: true,
+		Certificates:       []tls.Certificate{cer},
+	}
 	s.Addr = viper.GetString("proxy.address")
 	s.Domain = viper.GetString("proxy.domain")
-	// TODO(kiennt): Add config later
 	s.ReadTimeout = viper.GetDuration("proxy.readTimeout") * time.Second
 	s.WriteTimeout = viper.GetDuration("proxy.writeTimeout") * time.Second
 	s.MaxMessageBytes = viper.GetInt("proxy.maxMessageBytes")
