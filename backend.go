@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"strings"
 
 	"github.com/emersion/go-sasl"
 	"github.com/ntk148v/go-smtp"
@@ -26,7 +27,7 @@ type Session struct {
 
 // Login handles a login command with username and password.
 func (be *Backend) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
-	if username != viper.GetString("smtp.username") || password != viper.GetString("smtp.password") {
+	if (username != viper.GetString("smtp.username") && username != strings.Split(viper.GetString("smtp.username"), "@")[0]) || password != viper.GetString("smtp.password") {
 		return nil, errors.New("Invalid username or password")
 	}
 	return &Session{}, nil
