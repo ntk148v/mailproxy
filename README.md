@@ -30,7 +30,7 @@ $ openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 * Run it
 
 ```bash
-$ docker run -d -p 9011:9011 --name mailproxy -v /path/to/directory/contains/config:/etc/mailproxy go-mailproxy:v1.0
+$ docker run -d -p <port>:<port> --name mailproxy -v /path/to/directory/contains/config:/etc/mailproxy go-mailproxy:v1.0
 ```
 
 ### Manual
