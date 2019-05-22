@@ -9,7 +9,7 @@ ADD . $APPLOC
 WORKDIR $APPLOC
 RUN go build -mod vendor -o /bin/mailproxy
 
-FROM golang:1.12-alpine
+FROM alpine:3.9
 LABEL maintainer="Kien Nguyen <kiennt2609@gmail.com>"
 COPY --from=builder /bin/mailproxy /bin/mailproxy
 RUN chmod +x /bin/mailproxy && \
