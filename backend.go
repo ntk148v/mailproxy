@@ -27,7 +27,8 @@ type Session struct {
 
 // Login handles a login command with username and password.
 func (be *Backend) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
-	if (username != viper.GetString("smtp.username") && username != strings.Split(viper.GetString("smtp.username"), "@")[0]) || password != viper.GetString("smtp.password") {
+	smtpusername := viper.GetString("smtp.username")
+	if (username != smtpusername && username != strings.Split(smtpusername, "@")[0] && strings.Split(username, "@")[0] != smtpusername) || password != viper.GetString("smtp.password") {
 		return nil, errors.New("Invalid username or password")
 	}
 	return &Session{}, nil
