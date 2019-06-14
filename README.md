@@ -27,10 +27,10 @@ $ openssl ecparam -genkey -name secp384r1 -out server.key
 $ openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 ```
 
-* Run it
+* Run it (build command is suppored as well, check [Makefile](./Makefile) for more details)
 
 ```bash
-$ docker run -d -p <port>:<port> --name mailproxy -v /path/to/directory/contains/config:/etc/mailproxy go-mailproxy:v1.0
+$ make run
 ```
 
 ### Manual
@@ -53,5 +53,7 @@ $ openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 * Run it.
 
 ```bash
+$ cd mailproxy/
+$ go build -mod vendor -o bin/mailproxy
 $ ./bin/mailproxy -conf /path/to/directory/contains/config
 ```
