@@ -59,6 +59,7 @@ func (s *Session) Data(r io.Reader) error {
 	auth := sasl.NewPlainClient("", viper.GetString("smtp.username"), viper.GetString("smtp.password"))
 	err := smtp.SendMail(viper.GetString("smtp.address"), auth, s.msg.From, s.msg.To, r, true)
 	if err != nil {
+		log.Println("Error when handle data: ", err)
 		return err
 	}
 	log.Println("Nice! Forwarded mail to ", s.msg.To)
