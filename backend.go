@@ -31,6 +31,7 @@ func (be *Backend) Login(state *smtp.ConnectionState, username, password string)
 	if (username != smtpusername && username != strings.Split(smtpusername, "@")[0] && strings.Split(username, "@")[0] != smtpusername) || password != viper.GetString("smtp.password") {
 		return nil, errors.New("Invalid username or password")
 	}
+	log.Println("---------------")
 	return &Session{}, nil
 }
 
@@ -73,5 +74,6 @@ func (s *Session) Reset() {
 
 // Logout - logout, of course
 func (s *Session) Logout() error {
+	log.Println("---------------")
 	return nil
 }
