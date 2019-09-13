@@ -15,10 +15,10 @@ build:
 build-latest: build
 	docker tag "$(DOCKER_IMAGE_FULL)" "$(DOCKER_IMAGE_LATEST)"
 
-push:
+push: build
 	docker push "$(DOCKER_IMAGE_FULL)"
 
-push-latest:
+push-latest: build-latest
 	docker push "$(DOCKER_IMAGE_LATEST)"
 
 run:
