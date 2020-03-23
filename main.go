@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/emersion/go-sasl"
@@ -51,8 +54,27 @@ func main() {
 		})
 	})
 
-	log.Println("Starting server at", s.Addr)
-	if err := s.ListenAndServe(); err != nil {
-		log.Fatal(err)
+	var (
+		term = make(chan os.Signal, 1)
+		srvc = make(chan struct{})
+	)
+
+	go func() {
+		log.Println("Starting server at", s.Addr)
+		if err := s.ListenAndServe(); err != nil {
+			log.Fatal(err)
+			close(srvc)
+		}
+	}()
+	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
+
+	for {
+		select {
+		case <-term:
+			log.Println("Received SIGTERM, exiting gracefully...")
+			os.Exit(0)
+		case <-srvc:
+			os.Exit(1)
+		}
 	}
 }
