@@ -1,10 +1,8 @@
 # go-smtp
 
 [![GoDoc](https://godoc.org/github.com/emersion/go-smtp?status.svg)](https://godoc.org/github.com/emersion/go-smtp)
-[![Build Status](https://travis-ci.org/emersion/go-smtp.svg?branch=master)](https://travis-ci.org/emersion/go-smtp)
+[![builds.sr.ht status](https://builds.sr.ht/~emersion/go-smtp.svg)](https://builds.sr.ht/~emersion/go-smtp?)
 [![codecov](https://codecov.io/gh/emersion/go-smtp/branch/master/graph/badge.svg)](https://codecov.io/gh/emersion/go-smtp)
-[![stability-unstable](https://img.shields.io/badge/stability-unstable-yellow.svg)](https://github.com/emersion/stability-badges#unstable)
-[![Go Report Card](https://goreportcard.com/badge/github.com/emersion/go-smtp)](https://goreportcard.com/report/github.com/emersion/go-smtp)
 
 An ESMTP client and server library written in Go.
 
@@ -84,7 +82,7 @@ func (bkd *Backend) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, e
 // A Session is returned after successful login.
 type Session struct{}
 
-func (s *Session) Mail(from string) error {
+func (s *Session) Mail(from string, opts smtp.MailOptions) error {
 	log.Println("Mail from:", from)
 	return nil
 }
@@ -141,6 +139,12 @@ DATA
 Hey <3
 .
 ```
+
+## Relationship with net/smtp
+
+The Go standard library provides a SMTP client implementation in `net/smtp`.
+However `net/smtp` is frozen: it's not getting any new features. go-smtp
+provides a server implementation and a number of client improvements.
 
 ## Licence
 

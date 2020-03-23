@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/textproto"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ import (
 
 type ConnectionState struct {
 	Hostname   string
+	LocalAddr  net.Addr
 	RemoteAddr net.Addr
 	TLS        tls.ConnectionState
 }
@@ -44,16 +46,28 @@ func newConn(c net.Conn, s *Server) *Conn {
 }
 
 func (c *Conn) init() {
-	var rwc io.ReadWriteCloser = c.conn
+	rwc := struct {
+		io.Reader
+		io.Writer
+		io.Closer
+	}{
+		Reader: lineLimitReader{
+			R:         c.conn,
+			LineLimit: c.server.MaxLineLength,
+		},
+		Writer: c.conn,
+		Closer: c.conn,
+	}
+
 	if c.server.Debug != nil {
 		rwc = struct {
 			io.Reader
 			io.Writer
 			io.Closer
 		}{
-			io.TeeReader(c.conn, c.server.Debug),
-			io.MultiWriter(c.conn, c.server.Debug),
-			c.conn,
+			io.TeeReader(rwc.Reader, c.server.Debug),
+			io.MultiWriter(rwc.Writer, c.server.Debug),
+			rwc.Closer,
 		}
 	}
 
@@ -72,6 +86,18 @@ func (c *Conn) unrecognizedCommand(cmd string) {
 
 // Commands are dispatched to the appropriate handler functions.
 func (c *Conn) handle(cmd string, arg string) {
+	// If panic happens during command handling - send 421 response
+	// and close connection.
+	defer func() {
+		if err := recover(); err != nil {
+			c.WriteResponse(421, EnhancedCode{4, 0, 0}, "Internal server error")
+			c.Close()
+
+			stack := debug.Stack()
+			c.server.ErrorLog.Printf("panic serving %v: %v\n%s", c.State().RemoteAddr, err, stack)
+		}
+	}()
+
 	if cmd == "" {
 		c.WriteResponse(500, EnhancedCode{5, 5, 2}, "Speak up")
 		return
@@ -87,9 +113,11 @@ func (c *Conn) handle(cmd string, arg string) {
 		enhanced := lmtp || cmd == "EHLO"
 		if c.server.LMTP && !lmtp {
 			c.WriteResponse(500, EnhancedCode{5, 5, 1}, "This is a LMTP server, use LHLO")
+			return
 		}
 		if !c.server.LMTP && lmtp {
 			c.WriteResponse(500, EnhancedCode{5, 5, 1}, "This is not a LMTP server")
+			return
 		}
 		c.handleGreet(enhanced, arg)
 	case "MAIL":
@@ -141,6 +169,7 @@ func (c *Conn) SetSession(session Session) {
 func (c *Conn) Close() error {
 	if session := c.Session(); session != nil {
 		session.Logout()
+		c.SetSession(nil)
 	}
 
 	return c.conn.Close()
@@ -164,6 +193,7 @@ func (c *Conn) State() ConnectionState {
 	}
 
 	state.Hostname = c.helo
+	state.LocalAddr = c.conn.LocalAddr()
 	state.RemoteAddr = c.conn.RemoteAddr()
 
 	return state
@@ -206,6 +236,12 @@ func (c *Conn) handleGreet(enhanced bool, arg string) {
 			}
 
 			caps = append(caps, authCap)
+		}
+		if c.server.EnableSMTPUTF8 {
+			caps = append(caps, "SMTPUTF8")
+		}
+		if _, isTLS := c.TLSConnectionState(); isTLS && c.server.EnableREQUIRETLS {
+			caps = append(caps, "REQUIRETLS")
 		}
 		if c.server.MaxMessageBytes > 0 {
 			caps = append(caps, fmt.Sprintf("SIZE %v", c.server.MaxMessageBytes))
@@ -250,11 +286,14 @@ func (c *Conn) handleMail(arg string) {
 			return
 		}
 	}
-	from := strings.Trim(fromArgs[0], "<> ")
+	from := fromArgs[0]
 	if from == "" {
 		c.WriteResponse(501, EnhancedCode{5, 5, 2}, "Was expecting MAIL arg syntax of FROM:<address>")
 		return
 	}
+	from = strings.Trim(from, "<>")
+
+	opts := MailOptions{}
 
 	// This is where the Conn may put BODY=8BITMIME, but we already
 	// read the DATA as bytes, so it does not effect our processing.
@@ -265,21 +304,48 @@ func (c *Conn) handleMail(arg string) {
 			return
 		}
 
-		if args["SIZE"] != "" {
-			size, err := strconv.ParseInt(args["SIZE"], 10, 32)
-			if err != nil {
-				c.WriteResponse(501, EnhancedCode{5, 5, 4}, "Unable to parse SIZE as an integer")
-				return
-			}
+		for key, value := range args {
+			switch key {
+			case "SIZE":
+				size, err := strconv.ParseInt(value, 10, 32)
+				if err != nil {
+					c.WriteResponse(501, EnhancedCode{5, 5, 4}, "Unable to parse SIZE as an integer")
+					return
+				}
 
-			if c.server.MaxMessageBytes > 0 && int(size) > c.server.MaxMessageBytes {
-				c.WriteResponse(552, EnhancedCode{5, 3, 4}, "Max message size exceeded")
+				if c.server.MaxMessageBytes > 0 && int(size) > c.server.MaxMessageBytes {
+					c.WriteResponse(552, EnhancedCode{5, 3, 4}, "Max message size exceeded")
+					return
+				}
+
+				opts.Size = int(size)
+			case "SMTPUTF8":
+				if !c.server.EnableSMTPUTF8 {
+					c.WriteResponse(504, EnhancedCode{5, 5, 4}, "SMTPUTF8 is not implemented")
+					return
+				}
+				opts.UTF8 = true
+			case "REQUIRETLS":
+				if !c.server.EnableREQUIRETLS {
+					c.WriteResponse(504, EnhancedCode{5, 5, 4}, "REQUIRETLS is not implemented")
+					return
+				}
+				opts.RequireTLS = true
+			case "BODY":
+				switch value {
+				case "7BIT", "8BITMIME":
+				default:
+					c.WriteResponse(500, EnhancedCode{5, 5, 4}, "Unknown BODY value")
+					return
+				}
+			default:
+				c.WriteResponse(500, EnhancedCode{5, 5, 4}, "Unknown MAIL FROM argument")
 				return
 			}
 		}
 	}
 
-	if err := c.Session().Mail(from); err != nil {
+	if err := c.Session().Mail(from, opts); err != nil {
 		if smtpErr, ok := err.(*SMTPError); ok {
 			c.WriteResponse(smtpErr.Code, smtpErr.EnhancedCode, smtpErr.Message)
 			return
@@ -333,6 +399,11 @@ func (c *Conn) handleAuth(arg string) {
 	parts := strings.Fields(arg)
 	if len(parts) == 0 {
 		c.WriteResponse(502, EnhancedCode{5, 5, 4}, "Missing parameter")
+		return
+	}
+
+	if _, isTLS := c.TLSConnectionState(); !isTLS && !c.server.AllowInsecureAuth {
+		c.WriteResponse(523, EnhancedCode{5, 7, 10}, "TLS is required")
 		return
 	}
 
@@ -419,7 +490,14 @@ func (c *Conn) handleStartTLS() {
 	c.conn = tlsConn
 	c.init()
 
-	// Reset envelope as a new EHLO/HELO is required after STARTTLS
+	// Reset all state and close the previous Session.
+	// This is different from just calling reset() since we want the Backend to
+	// be able to see the information about TLS connection in the
+	// ConnectionState object passed to it.
+	if session := c.Session(); session != nil {
+		session.Logout()
+		c.SetSession(nil)
+	}
 	c.reset()
 }
 
@@ -438,40 +516,138 @@ func (c *Conn) handleData(arg string) {
 	// We have recipients, go to accept data
 	c.WriteResponse(354, EnhancedCode{2, 0, 0}, "Go ahead. End your data with <CR><LF>.<CR><LF>")
 
-	var (
-		code         int
-		enhancedCode EnhancedCode
-		msg          string
-	)
-	r := newDataReader(c)
-	err := c.Session().Data(r)
-	io.Copy(ioutil.Discard, r) // Make sure all the data has been consumed
-	if err != nil {
-		if smtperr, ok := err.(*SMTPError); ok {
-			code = smtperr.Code
-			enhancedCode = smtperr.EnhancedCode
-			msg = smtperr.Message
-		} else {
-			code = 554
-			enhancedCode = EnhancedCode{5, 0, 0}
-			msg = "Error: transaction failed, blame it on the weather: " + err.Error()
-		}
-	} else {
-		code = 250
-		enhancedCode = EnhancedCode{2, 0, 0}
-		msg = "OK: queued"
-	}
+	defer c.reset()
 
 	if c.server.LMTP {
-		// TODO: support per-recipient responses
-		for _, rcpt := range c.recipients {
-			c.WriteResponse(code, enhancedCode, "<"+rcpt+"> "+msg)
-		}
-	} else {
-		c.WriteResponse(code, enhancedCode, msg)
+		c.handleDataLMTP()
+		return
 	}
 
-	c.reset()
+	r := newDataReader(c)
+	code, enhancedCode, msg := toSMTPStatus(c.Session().Data(r))
+	io.Copy(ioutil.Discard, r) // Make sure all the data has been consumed
+	c.WriteResponse(code, enhancedCode, msg)
+
+}
+
+type statusCollector struct {
+	// Contains map from recipient to list of channels that are used for that
+	// recipient.
+	statusMap map[string]chan error
+
+	// Contains channels from statusMap, in the same
+	// order as Conn.recipients.
+	status []chan error
+}
+
+// fillRemaining sets status for all recipients SetStatus was not called for before.
+func (s *statusCollector) fillRemaining(err error) {
+	// Amount of times certain recipient was specified is indicated by the channel
+	// buffer size, so once we fill it, we can be confident that we sent
+	// at least as much statuses as needed. Extra statuses will be ignored anyway.
+chLoop:
+	for _, ch := range s.statusMap {
+		for {
+			select {
+			case ch <- err:
+			default:
+				continue chLoop
+			}
+		}
+	}
+}
+
+func (s *statusCollector) SetStatus(rcptTo string, err error) {
+	ch := s.statusMap[rcptTo]
+	if ch == nil {
+		panic("SetStatus is called for recipient that was not specified before")
+	}
+
+	select {
+	case ch <- err:
+	default:
+		// There enough buffer space to fit all statuses at once, if this is
+		// not the case - backend is doing something wrong.
+		panic("SetStatus is called more times than particular recipient was specified")
+	}
+}
+
+func (c *Conn) handleDataLMTP() {
+	r := newDataReader(c)
+
+	rcptCounts := make(map[string]int, len(c.recipients))
+
+	status := &statusCollector{
+		statusMap: make(map[string]chan error, len(c.recipients)),
+		status:    make([]chan error, 0, len(c.recipients)),
+	}
+	for _, rcpt := range c.recipients {
+		rcptCounts[rcpt]++
+	}
+	// Create channels with buffer sizes necessary to fit all
+	// statuses for a single recipient to avoid deadlocks.
+	for rcpt, count := range rcptCounts {
+		status.statusMap[rcpt] = make(chan error, count)
+	}
+	for _, rcpt := range c.recipients {
+		status.status = append(status.status, status.statusMap[rcpt])
+	}
+
+	done := make(chan bool, 1)
+
+	lmtpSession, ok := c.Session().(LMTPSession)
+	if !ok {
+		// Fallback to using a single status for all recipients.
+		err := c.Session().Data(r)
+		io.Copy(ioutil.Discard, r) // Make sure all the data has been consumed
+		for _, rcpt := range c.recipients {
+			status.SetStatus(rcpt, err)
+		}
+		done <- true
+	} else {
+		go func() {
+			defer func() {
+				if err := recover(); err != nil {
+					status.fillRemaining(&SMTPError{
+						Code:         421,
+						EnhancedCode: EnhancedCode{4, 0, 0},
+						Message:      "Internal server error",
+					})
+
+					stack := debug.Stack()
+					c.server.ErrorLog.Printf("panic serving %v: %v\n%s", c.State().RemoteAddr, err, stack)
+					done <- false
+				}
+			}()
+
+			status.fillRemaining(lmtpSession.LMTPData(r, status))
+			io.Copy(ioutil.Discard, r) // Make sure all the data has been consumed
+			done <- true
+		}()
+	}
+
+	for i, rcpt := range c.recipients {
+		code, enchCode, msg := toSMTPStatus(<-status.status[i])
+		c.WriteResponse(code, enchCode, "<"+rcpt+"> "+msg)
+	}
+
+	// If done gets false, the panic occured in LMTPData and the connection
+	// should be closed.
+	if !<-done {
+		c.Close()
+	}
+}
+
+func toSMTPStatus(err error) (code int, enchCode EnhancedCode, msg string) {
+	if err != nil {
+		if smtperr, ok := err.(*SMTPError); ok {
+			return smtperr.Code, smtperr.EnhancedCode, smtperr.Message
+		} else {
+			return 554, EnhancedCode{5, 0, 0}, "Error: transaction failed, blame it on the weather: " + err.Error()
+		}
+	}
+
+	return 250, EnhancedCode{2, 0, 0}, "OK: queued"
 }
 
 func (c *Conn) Reject() {

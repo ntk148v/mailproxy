@@ -1,3 +1,5 @@
 module github.com/ntk148v/go-smtp
 
-require github.com/emersion/go-sasl v0.0.0-20161116183048-7e096a0a6197
+require github.com/emersion/go-sasl v0.0.0-20190817083125-240c8404624e
+
+go 1.13

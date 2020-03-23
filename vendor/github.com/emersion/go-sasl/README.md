@@ -7,10 +7,11 @@ A [SASL](https://tools.ietf.org/html/rfc4422) library written in Go.
 
 Implemented mechanisms:
 * [ANONYMOUS](https://tools.ietf.org/html/rfc4505)
-* [EXTERNAL](https://tools.ietf.org/html/rfc4422)
-* [LOGIN](https://tools.ietf.org/html/draft-murchison-sasl-login-00) (only server, obsolete, use PLAIN instead)
+* [EXTERNAL](https://tools.ietf.org/html/rfc4422#appendix-A)
+* [LOGIN](https://tools.ietf.org/html/draft-murchison-sasl-login-00) (obsolete, use PLAIN instead)
 * [PLAIN](https://tools.ietf.org/html/rfc4616)
-* [XOAUTH2](https://developers.google.com/gmail/xoauth2_protocol)
+* [OAUTHBEARER](https://tools.ietf.org/html/rfc7628)
+* [XOAUTH2](https://developers.google.com/gmail/xoauth2_protocol) (non-standard, use OAUTHBEARER instead)
 
 ## License
 

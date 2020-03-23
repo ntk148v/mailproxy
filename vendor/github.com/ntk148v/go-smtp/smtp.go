@@ -6,6 +6,8 @@
 //	AUTH      		RFC 2554
 //	STARTTLS  		RFC 3207
 //	ENHANCEDSTATUSCODES	RFC 2034
+//  SMTPUTF8		RFC 6531
+//  REQUIRETLS		draft-ietf-uta-smtp-require-tls-09
 //
 // LMTP (RFC 2033) is also supported.
 //

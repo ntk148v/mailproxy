@@ -6,28 +6,15 @@ A dead simple Mail forward proxy written in Golang.
 
 ### Docker
 
-* Build it
+- Build it
 
 ```bash
 $ docker build -t go-mailproxy:v1.0 .
 ```
 
-* Update `config.yml`, you could refer [an example config](./etc/config.yml)
+- Update `config.yml`, you could refer [an example config](./etc/config.yml)
 
-* Generate cert key files, then put it in `/path/to/directory/contains/config` (Change this path with the actual path). For example:
-
-```bash
-# Key considerations for algorithm "RSA" ≥ 2048-bit
-$ openssl genrsa -out server.key 2048
-
-# Key considerations for algorithm "ECDSA" (X25519 || ≥ secp384r1)
-# https://safecurves.cr.yp.to/
-# List ECDSA the supported curves (openssl ecparam -list_curves)
-$ openssl ecparam -genkey -name secp384r1 -out server.key
-$ openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-```
-
-* Run it (build command is suppored as well, check [Makefile](./Makefile) for more details)
+- Run it (build command is suppored as well, check [Makefile](./Makefile) for more details)
 
 ```bash
 $ make run
@@ -35,22 +22,9 @@ $ make run
 
 ### Manual
 
-* Update config file.
+- Update config file.
 
-* Generate cert key files, then put it in `/path/to/directory/contains/config` (Change this path with the actual path). For example:
-
-```bash
-# Key considerations for algorithm "RSA" ≥ 2048-bit
-$ openssl genrsa -out server.key 2048
-
-# Key considerations for algorithm "ECDSA" (X25519 || ≥ secp384r1)
-# https://safecurves.cr.yp.to/
-# List ECDSA the supported curves (openssl ecparam -list_curves)
-$ openssl ecparam -genkey -name secp384r1 -out server.key
-$ openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-```
-
-* Run it.
+- Run it.
 
 ```bash
 $ cd mailproxy/

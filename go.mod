@@ -1,11 +1,10 @@
 module github.com/ntk148v/mailproxy
 
-go 1.12
+go 1.14
 
 require (
-	github.com/BurntSushi/toml v0.3.1 // indirect
-	github.com/emersion/go-sasl v0.0.0-20190520160400-47d427600317
-	github.com/emersion/go-smtp v0.11.1 // indirect
-	github.com/ntk148v/go-smtp v0.11.2
-	github.com/spf13/viper v1.3.2
+	github.com/emersion/go-sasl v0.0.0-20191210011802-430746ea8b9b
+	github.com/emersion/go-smtp v0.12.1 // indirect
+	github.com/ntk148v/go-smtp v0.11.3-0.20200323041829-9f5014eaddfc
+	github.com/spf13/viper v1.6.2
 )

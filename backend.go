@@ -41,7 +41,7 @@ func (be *Backend) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, er
 }
 
 // Mail - handle MAIL FROM
-func (s *Session) Mail(from string) error {
+func (s *Session) Mail(from string, opts smtp.MailOptions) error {
 	log.Println("Mail from:", from)
 	s.Reset()
 	s.msg.From = from
