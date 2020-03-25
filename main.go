@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"log"
 	"os"
@@ -30,9 +31,18 @@ func init() {
 
 func main() {
 	be := &Backend{}
-
 	s := smtp.NewServer(be)
 
+	// Generate a fake cert
+	cer, err := tls.LoadX509KeyPair(viper.GetString("proxy.serverCrt"),
+		viper.GetString("proxy.serverKey"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	s.TLSConfig = &tls.Config{
+		InsecureSkipVerify: true,
+		Certificates:       []tls.Certificate{cer},
+	}
 	s.Addr = viper.GetString("proxy.address")
 	s.Domain = viper.GetString("proxy.domain")
 	s.ReadTimeout = viper.GetDuration("proxy.readTimeout") * time.Second
