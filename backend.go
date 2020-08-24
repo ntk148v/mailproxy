@@ -35,7 +35,7 @@ func (be *Backend) Login(state *smtp.ConnectionState, username, password string)
 		strings.Split(username, "@")[0] != smtpusername) || password != viper.GetString("smtp.password") {
 		return nil, errors.New("Invalid username or password")
 	}
-	level.Info(be.logger).Log("msg", "=======================================")
+	level.Info(be.logger).Log("msg", "===================================================")
 	level.Info(be.logger).Log("msg", "handle login with username and password")
 	return &Session{backend: be}, nil
 }
@@ -81,6 +81,6 @@ func (s *Session) Reset() {
 // Logout - logout, of course
 func (s *Session) Logout() error {
 	level.Info(s.backend.logger).Log("msg", "handle Logout")
-	level.Info(s.backend.logger).Log("msg", "=======================================")
+	level.Info(s.backend.logger).Log("msg", "===================================================")
 	return nil
 }
