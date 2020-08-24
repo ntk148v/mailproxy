@@ -14,5 +14,4 @@ LABEL maintainer="Kien Nguyen <kiennt2609@gmail.com>"
 COPY --from=builder /bin/mailproxy /bin/mailproxy
 RUN chmod +x /bin/mailproxy && \
     mkdir /etc/mailproxy
-ENTRYPOINT ["/bin/mailproxy"]
-CMD ["-conf", "/etc/mailproxy"]
+ENTRYPOINT ["/bin/mailproxy", "--config.file", "/etc/mailproxy/config.yml"]

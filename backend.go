@@ -3,16 +3,19 @@ package main
 import (
 	"errors"
 	"io"
-	"log"
 	"strings"
 
 	"github.com/emersion/go-sasl"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/ntk148v/go-smtp"
 	"github.com/spf13/viper"
 )
 
 // The Backend implements SMTP server methods.
-type Backend struct{}
+type Backend struct {
+	logger log.Logger
+}
 
 type message struct {
 	From string
@@ -28,12 +31,13 @@ type Session struct {
 // Login handles a login command with username and password.
 func (be *Backend) Login(state *smtp.ConnectionState, username, password string) (smtp.Session, error) {
 	smtpusername := viper.GetString("smtp.username")
-	if (username != smtpusername && username != strings.Split(smtpusername, "@")[0] && strings.Split(username, "@")[0] != smtpusername) || password != viper.GetString("smtp.password") {
+	if (username != smtpusername && username != strings.Split(smtpusername, "@")[0] &&
+		strings.Split(username, "@")[0] != smtpusername) || password != viper.GetString("smtp.password") {
 		return nil, errors.New("Invalid username or password")
 	}
-	log.Println("------------------------------------------------------------------------")
-	log.Println("Login")
-	return &Session{}, nil
+	level.Info(be.logger).Log("msg", "=======================================")
+	level.Info(be.logger).Log("msg", "handle login with username and password")
+	return &Session{backend: be}, nil
 }
 
 // AnonymousLogin requires clients to authenticate using SMTP AUTH before sending emails
@@ -43,28 +47,29 @@ func (be *Backend) AnonymousLogin(state *smtp.ConnectionState) (smtp.Session, er
 
 // Mail - handle MAIL FROM
 func (s *Session) Mail(from string, opts smtp.MailOptions) error {
-	log.Println("Mail from:", from)
 	s.Reset()
+	level.Info(s.backend.logger).Log("msg", "handle smtp command MAIL FROM", "sender", from)
 	s.msg.From = from
 	return nil
 }
 
 // Rcpt - handle RCPT TO
 func (s *Session) Rcpt(to string) error {
-	log.Println("Rcpt to:", to)
+	level.Info(s.backend.logger).Log("msg", "handle smtp command RCPT TO", "recipients", to)
 	s.msg.To = append(s.msg.To, to)
 	return nil
 }
 
 // Data - handle DATA
 func (s *Session) Data(r io.Reader) error {
+	level.Info(s.backend.logger).Log("msg", "handle smtp command DATA")
 	auth := sasl.NewPlainClient("", viper.GetString("smtp.username"), viper.GetString("smtp.password"))
 	err := smtp.SendMail(viper.GetString("smtp.address"), auth, s.msg.From, s.msg.To, r, true)
 	if err != nil {
-		log.Println("Error when handle data: ", err)
+		level.Error(s.backend.logger).Log("msg", "error when handling data", "err", err)
 		return err
 	}
-	log.Println("Nice! Forwarded mail to ", s.msg.To)
+	level.Info(s.backend.logger).Log("msg", "forwared mail to", "recipients", s.msg.To)
 	return nil
 }
 
@@ -75,7 +80,7 @@ func (s *Session) Reset() {
 
 // Logout - logout, of course
 func (s *Session) Logout() error {
-	log.Println("Logout")
-	log.Println("------------------------------------------------------------------------")
+	level.Info(s.backend.logger).Log("msg", "handle Logout")
+	level.Info(s.backend.logger).Log("msg", "=======================================")
 	return nil
 }

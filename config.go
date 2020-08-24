@@ -40,8 +40,7 @@ type globalConfig struct {
 
 // loadConfig generates a configuration instance which will be passed around the codebase
 func loadConfig(cp string) error {
-	viper.SetConfigName("config")
-	viper.AddConfigPath(cp)
+	viper.SetConfigFile(cp)
 
 	err := viper.ReadInConfig()
 	if err != nil {

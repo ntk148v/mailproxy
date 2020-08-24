@@ -2,42 +2,70 @@ package main
 
 import (
 	"crypto/tls"
-	"flag"
-	"log"
+	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/emersion/go-sasl"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/ntk148v/go-smtp"
+	"github.com/pkg/errors"
+	"github.com/prometheus/common/promlog"
+	logflag "github.com/prometheus/common/promlog/flag"
 	"github.com/spf13/viper"
+	"gopkg.in/alecthomas/kingpin.v2"
 )
-
-const (
-	defaultConfigFilePath = "./etc/"
-	configFilePathUsage   = "config file directory (eg. '/etc/mailproxy/'). Config file must be named 'config.yml'."
-)
-
-var configFilePath string
-
-func init() {
-	flag.StringVar(&configFilePath, "conf", defaultConfigFilePath, configFilePathUsage)
-	flag.Parse()
-	if err := loadConfig(configFilePath); err != nil {
-		panic(err)
-	}
-}
 
 func main() {
-	be := &Backend{}
+	if os.Getenv("DEBUG") != "" {
+		runtime.SetBlockProfileRate(20)
+		runtime.SetMutexProfileFraction(20)
+	}
+
+	cfg := struct {
+		configFile string
+		logConfig  promlog.Config
+	}{
+		logConfig: promlog.Config{},
+	}
+
+	a := kingpin.New(filepath.Base(os.Args[0]), "The mailproxy")
+	a.HelpFlag.Short('h')
+	a.Flag("config.file", "Mailproxy configuration file path.").
+		Default("/etc/mailproxy/config.yml").StringVar(&cfg.configFile)
+	logflag.AddFlags(a, &cfg.logConfig)
+	_, err := a.Parse(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, errors.Wrapf(err, "Error parsing commandline arguments"))
+		a.Usage(os.Args[1:])
+		os.Exit(2)
+	}
+
+	logger := promlog.New(&cfg.logConfig)
+	level.Info(logger).Log("msg", "Staring mailproxy")
+
+	// Load configs
+	if err := loadConfig(cfg.configFile); err != nil {
+		fmt.Fprintln(os.Stderr, errors.Wrapf(err, "Error parsing config file"))
+		os.Exit(2)
+	}
+
+	be := &Backend{
+		logger: log.With(logger, "component", "SMTP backend"),
+	}
 	s := smtp.NewServer(be)
 
 	// Generate a fake cert
 	cer, err := tls.LoadX509KeyPair(viper.GetString("proxy.serverCrt"),
 		viper.GetString("proxy.serverKey"))
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, errors.Wrapf(err, "Error parsing cert files"))
+		os.Exit(2)
 	}
 	s.TLSConfig = &tls.Config{
 		InsecureSkipVerify: true,
@@ -70,9 +98,9 @@ func main() {
 	)
 
 	go func() {
-		log.Println("Starting server at", s.Addr)
+		level.Info(logger).Log("msg", "Listening", "address", s.Addr)
 		if err := s.ListenAndServe(); err != nil {
-			log.Fatal(err)
+			level.Error(logger).Log("msg", "Listen error", "err", err)
 			close(srvc)
 		}
 	}()
@@ -81,7 +109,7 @@ func main() {
 	for {
 		select {
 		case <-term:
-			log.Println("Received SIGTERM, exiting gracefully...")
+			level.Info(logger).Log("msg", "Received SIGTERM, exiting gracefully...")
 			os.Exit(0)
 		case <-srvc:
 			os.Exit(1)
