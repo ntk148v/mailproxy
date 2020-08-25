@@ -9,7 +9,7 @@ A dead simple Mail forward proxy written in Golang.
 - Build it
 
 ```bash
-$ docker build -t go-mailproxy:v1.0 .
+$ make build-image
 ```
 
 - Generate cert key files, then put it in `/path/to/directory/contains/cert` (Change this path with the actual path). For example:
@@ -30,7 +30,7 @@ $ openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 - Run it (build command is suppored as well, check [Makefile](./Makefile) for more details)
 
 ```bash
-$ make run
+$ docker run -d --name mailproxy -v /path/to/mailproxy/directory:/etc/mailproxy kienn26/mailproxy:latest
 ```
 
 ### Manual
@@ -53,7 +53,6 @@ $ openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 - Run it.
 
 ```bash
-$ cd mailproxy/
-$ go build -mod vendor -o bin/mailproxy
-$ ./bin/mailproxy -conf /path/to/directory/contains/config
+$ make build
+$ ./bin/mailproxy --config.file=/path/to/directory/config-file
 ```
