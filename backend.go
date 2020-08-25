@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/emersion/go-sasl"
 	"github.com/go-kit/kit/log"
@@ -64,6 +65,22 @@ func (s *Session) Rcpt(to string) error {
 func (s *Session) Data(r io.Reader) error {
 	level.Info(s.backend.logger).Log("msg", "handle smtp command DATA")
 	auth := sasl.NewPlainClient("", viper.GetString("smtp.username"), viper.GetString("smtp.password"))
+	retry := 0
+	for retry < viper.GetInt("proxy.retryAttempts") {
+		err := smtp.SendMail(viper.GetString("smtp.address"), auth, s.msg.From, s.msg.To, r, true)
+		if err != nil {
+			level.Error(s.backend.logger).Log("msg", "error when handling data", "err", err.Error())
+			// Only retry if there is 4xx smtp error.
+			// For details, please check: https://serversmtp.com/smtp-error/
+			if smtpErr, ok := err.(*smtp.SMTPError); ok && smtpErr.Temporary() {
+				retry++
+				level.Debug(s.backend.logger).Log("msg", "retry to send mail", "attempt", retry)
+				time.Sleep(viper.GetDuration("proxy.retryDelay") * time.Second)
+				continue
+			}
+			return err
+		}
+	}
 	err := smtp.SendMail(viper.GetString("smtp.address"), auth, s.msg.From, s.msg.To, r, true)
 	if err != nil {
 		level.Error(s.backend.logger).Log("msg", "error when handling data", "err", err)

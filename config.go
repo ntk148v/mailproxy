@@ -21,6 +21,10 @@ type proxyConfig struct {
 	maxRecipients int `yaml:"maxRecipients"`
 	// maxMessageBytes represents the size of message.
 	maxMessageBytes int `yaml:"maxMessageBytes"`
+	// retryAttempts is the number of retry attempts to send mail.
+	retryAttempts int `yaml:"retryAttempts"`
+	// retryDelay is the delay in seconds between consecutive retries.
+	retryDelay int `yaml:"retryDelay"`
 }
 
 // smtpConfig stores smtp server related configurations.
@@ -52,8 +56,10 @@ func loadConfig(cp string) error {
 	viper.SetDefault("proxy.domain", "localhost")
 	viper.SetDefault("proxy.readTimeout", time.Duration(10))
 	viper.SetDefault("proxy.writeTimeout", time.Duration(10))
-	viper.SetDefault("maxRecipients", 50)
-	viper.SetDefault("maxMessageBytes", 1024*1024)
+	viper.SetDefault("proxy.maxRecipients", 50)
+	viper.SetDefault("proxy.maxMessageBytes", 1024*1024)
+	viper.SetDefault("proxy.retryAttempts", 5)
+	viper.SetDefault("proxy.retryDelay", time.Duration(5))
 	var cfg globalConfig
 	err = viper.Unmarshal(&cfg)
 	return err

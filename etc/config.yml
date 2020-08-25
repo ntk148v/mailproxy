@@ -1,5 +1,5 @@
 proxy:
-  address: ":9011"
+  address: "localhost:9011"
   domain: "localhost"
   allowInsecureAuth: true
   serverCrt: "/path/to/directory/contains/cert/server.crt"
@@ -8,6 +8,8 @@ proxy:
   writeTimeout: 10
   maxMessageBytes: 1024 * 1024
   maxRecipients: 50
+  retryAttempts: 5
+  retryDelay: 2
 smtp:
   address: "smtp.example.com:465"
   username: "fakeuser"
