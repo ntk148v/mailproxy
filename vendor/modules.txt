@@ -3,7 +3,7 @@ github.com/alecthomas/template
 github.com/alecthomas/template/parse
 # github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf
 github.com/alecthomas/units
-# github.com/emersion/go-sasl v0.0.0-20191210011802-430746ea8b9b
+# github.com/emersion/go-sasl v0.0.0-20200509203442-7bfe0ed36a21
 ## explicit
 github.com/emersion/go-sasl
 # github.com/emersion/go-smtp v0.12.1
