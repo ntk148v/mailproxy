@@ -55,7 +55,7 @@ func (s *Session) Mail(from string, opts smtp.MailOptions) error {
 
 // Rcpt - handle RCPT TO
 func (s *Session) Rcpt(to string) error {
-	level.Info(s.backend.logger).Log("msg", "handle smtp command RCPT TO", "recipients", to)
+	level.Info(s.backend.logger).Log("msg", "handle smtp command RCPT TO", "recipient", to)
 	s.msg.To = append(s.msg.To, to)
 	return nil
 }
@@ -69,7 +69,7 @@ func (s *Session) Data(r io.Reader) error {
 		level.Error(s.backend.logger).Log("msg", "error when handling data", "err", err)
 		return err
 	}
-	level.Info(s.backend.logger).Log("msg", "forwared mail to", "recipients", s.msg.To)
+	level.Info(s.backend.logger).Log("msg", "forwared mail to", "recipients", strings.Join(s.msg.To, ","))
 	return nil
 }
 
