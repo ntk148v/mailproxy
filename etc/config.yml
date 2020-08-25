@@ -4,6 +4,10 @@ proxy:
   allowInsecureAuth: true
   serverCrt: "/path/to/directory/contains/cert/server.crt"
   serverKey: "/path/to/directory/contains/cert/server.key"
+  readTimeout: 10
+  writeTimeout: 10
+  maxMessageBytes: 1024 * 1024
+  maxRecipients: 50
 smtp:
   address: "smtp.example.com:465"
   username: "fakeuser"
