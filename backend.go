@@ -80,11 +80,7 @@ func (s *Session) Data(r io.Reader) error {
 			}
 			return err
 		}
-	}
-	err := smtp.SendMail(viper.GetString("smtp.address"), auth, s.msg.From, s.msg.To, r, true)
-	if err != nil {
-		level.Error(s.backend.logger).Log("msg", "error when handling data", "err", err)
-		return err
+		break
 	}
 	level.Info(s.backend.logger).Log("msg", "forwared mail to", "recipients", strings.Join(s.msg.To, ","))
 	return nil
